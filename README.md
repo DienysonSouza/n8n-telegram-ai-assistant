@@ -1,6 +1,6 @@
 # 🤖 n8n Telegram AI Assistant
 
-> Um assistente pessoal de Telegram, self-hosted no [n8n](https://n8n.io), com IA (Anthropic Claude) e banco Postgres. Controle de **gastos**, **tarefas**, **notas**, **lembretes** e módulos opcionais de **jurídico** e **fitness** — tudo por mensagem de texto.
+> Um assistente pessoal de Telegram, self-hosted no [n8n](https://n8n.io), com IA (Anthropic Claude) e banco Postgres. Controle de **gastos**, **tarefas**, **notas**, **lembretes** e módulos opcional **fitness** — tudo por mensagem de texto.
 
 ![n8n](https://img.shields.io/badge/n8n-workflow-EA4B71?logo=n8n&logoColor=white)
 ![Telegram](https://img.shields.io/badge/Telegram-Bot-26A5E4?logo=telegram&logoColor=white)
