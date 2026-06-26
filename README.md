@@ -66,7 +66,7 @@ Todas as configurações ficam no arquivo `.env` (veja `.env.example`). As princ
 
 ## 📦 Importar os workflows
 
-Os workflows ficam em [`workflows/`](workflows/). No n8n: **Workflows → Import from File** e selecione cada `.json`. Depois conecte as **credenciais** (Telegram, Anthropic, Postgres) na UI — elas **não** vêm preenchidas (é assim que mantemos o repo sem segredos).
+Os workflows ficam em [`workflows/`](workflows/). No n8n: **Workflows → Import from File** e selecione cada `.json`. Depois conecte as **credenciais** (Telegram, Anthropic, Postgres) na UI.
 
 ## 🧩 Módulos opcionais
 
@@ -76,10 +76,6 @@ Ative pelo `.env`:
 
 Veja [`docs/modulos.md`](docs/modulos.md).
 
-## 🔐 Segurança
-
-- **Nenhum segredo ou dado pessoal** é versionado. Tudo sensível vive no seu `.env` (que está no `.gitignore`).
-- As credenciais (token, chave da IA, senha do banco) você configura na **sua** instância — nunca são compartilhadas.
 - Veja [`docs/instalacao.md`](docs/instalacao.md) para o passo a passo completo.
 
 ## 📄 Licença
