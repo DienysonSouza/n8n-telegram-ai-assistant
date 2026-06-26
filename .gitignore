@@ -1,0 +1,16 @@
+# Segredos / config local — NUNCA versionar
+.env
+*.env
+!.env.example
+
+# Exports CRUS dos workflows (podem conter dados pessoais antes da limpeza)
+workflows/_raw/
+
+# Dados / logs / temporários
+*.log
+*.sqlite
+*.db
+node_modules/
+dist/
+.DS_Store
+Thumbs.db

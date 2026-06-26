@@ -1,0 +1,10 @@
+.git
+.gitignore
+.env
+*.env
+!.env.example
+workflows/_raw/
+docs/
+*.md
+node_modules
+*.log

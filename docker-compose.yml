@@ -1,0 +1,66 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: assistant-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${PG_USER}
+      POSTGRES_PASSWORD: ${PG_PASSWORD}
+      POSTGRES_DB: ${PG_DATABASE}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      # schema aplicado automaticamente na 1ª subida do banco
+      - ./db/schema.sql:/docker-entrypoint-initdb.d/01-schema.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${PG_USER} -d ${PG_DATABASE}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  n8n:
+    image: n8nio/n8n:latest
+    container_name: assistant-n8n
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    ports:
+      - "5678:5678"
+    environment:
+      # --- n8n core ---
+      N8N_ENCRYPTION_KEY: ${N8N_ENCRYPTION_KEY}
+      GENERIC_TIMEZONE: ${GENERIC_TIMEZONE}
+      TZ: ${TZ}
+      # Code nodes rodam no processo principal (assim enxergam as variáveis abaixo).
+      # Se a sua versão do n8n ignorar isso, veja docs/instalacao.md (n8n Variables).
+      N8N_RUNNERS_ENABLED: "false"
+
+      # --- identidade / bot (lidas por $env nas expressões e process.env nos Code nodes) ---
+      OWNER_CHAT_ID: ${OWNER_CHAT_ID}
+      OWNER_NAME: ${OWNER_NAME}
+      SECONDARY_NAME: ${SECONDARY_NAME}
+      ANTHROPIC_MODEL: ${ANTHROPIC_MODEL}
+      EXPENSE_CATEGORIES: ${EXPENSE_CATEGORIES}
+      CNJ_API_KEY: ${CNJ_API_KEY}
+
+      # --- Postgres (os workflows leem BOT_PG* / POSTGRES_PASSWORD; mapeamos do .env limpo) ---
+      BOT_PGHOST: ${PG_HOST}
+      BOT_PGPORT: ${PG_PORT}
+      BOT_PGDATABASE: ${PG_DATABASE}
+      BOT_PGUSER: ${PG_USER}
+      BOT_PGPASSWORD: ${PG_PASSWORD}
+      POSTGRES_PASSWORD: ${PG_PASSWORD}
+      # nomes alternativos (alguns nodes usam PG_* diretamente)
+      PG_HOST: ${PG_HOST}
+      PG_PORT: ${PG_PORT}
+      PG_DATABASE: ${PG_DATABASE}
+      PG_USER: ${PG_USER}
+      PG_PASSWORD: ${PG_PASSWORD}
+    volumes:
+      - n8n_data:/home/node/.n8n
+      # workflows disponíveis dentro do container para import manual ou CLI
+      - ./workflows:/workflows:ro
+
+volumes:
+  pgdata:
+  n8n_data:
