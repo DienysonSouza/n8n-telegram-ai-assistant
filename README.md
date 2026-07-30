@@ -1,83 +1,140 @@
-# 🤖 n8n Telegram AI Assistant
+# n8n Telegram AI Assistant
 
-> Um assistente pessoal de Telegram, self-hosted no [n8n](https://n8n.io), com IA (Anthropic Claude) e banco Postgres. Controle de **gastos**, **tarefas**, **notas**, **lembretes** e módulos opcional **fitness** — tudo por mensagem de texto.
+Assistente pessoal self-hosted para Telegram, baseado em n8n, Anthropic e
+PostgreSQL. A imagem comunitaria prepara o banco, cria as credenciais locais e
+importa os workflows automaticamente.
 
-![n8n](https://img.shields.io/badge/n8n-workflow-EA4B71?logo=n8n&logoColor=white)
-![Telegram](https://img.shields.io/badge/Telegram-Bot-26A5E4?logo=telegram&logoColor=white)
-![Docker](https://img.shields.io/badge/Docker-compose-2496ED?logo=docker&logoColor=white)
-![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)
+[![Publicar imagem](https://github.com/DienysonSouza/n8n-telegram-ai-assistant/actions/workflows/container.yml/badge.svg)](https://github.com/DienysonSouza/n8n-telegram-ai-assistant/actions/workflows/container.yml)
+[![Validar instalacao](https://github.com/DienysonSouza/n8n-telegram-ai-assistant/actions/workflows/validate.yml/badge.svg)](https://github.com/DienysonSouza/n8n-telegram-ai-assistant/actions/workflows/validate.yml)
 
----
+## O que vem pronto
 
-## ✨ Funcionalidades
+- n8n 2.26.3 com dois templates: pessoal e Pro;
+- PostgreSQL 15 com o schema completo;
+- credenciais de Telegram, Anthropic e PostgreSQL criadas no primeiro boot;
+- workflows importados e vinculados as credenciais;
+- retencao de execucoes e rotacao de logs;
+- financeiro, tarefas, notas, lembretes e humor;
+- modulos opcionais juridico e fitness;
+- imagem para `amd64` e `arm64`;
+- nenhuma senha, token ou dado pessoal embutido.
 
-- 💬 **Conversa natural no Telegram** — fale como quiser ("ifood 45 no crédito"), a IA entende e registra.
-- 💰 **Financeiro** — gastos, gastos fixos, faturas de cartão, orçamentos e relatórios.
-- ✅ **Tarefas & lembretes** — criar, concluir, adiar, recorrências e alertas no horário.
-- 📝 **Notas** e 🙂 **registro de humor**.
-- ⏰ **Rotinas agendadas** — resumo diário, relatório semanal, lembretes automáticos.
-- 🧩 **Módulos opcionais** — `jurídico` (prazos/processos/honorários) e `fitness` (treinos/dieta).
+## Instalacao simples
 
-## 🏗️ Arquitetura
-
-```
-Telegram  ──▶  n8n (workflow + AI Agent Claude)  ──▶  Postgres
-                         │
-                         └── rotinas agendadas (cron) ──▶ Telegram
-```
-
-Tudo roda em containers Docker: **n8n** (orquestração + IA) e **Postgres** (dados). Você sobe com um `docker compose up` e importa os workflows.
-
-## 🚀 Início rápido
+### Linux ou macOS
 
 ```bash
-# 1. clone
-git clone <este-repo> && cd n8n-telegram-ai-assistant
-
-# 2. configure (copie e preencha com os SEUS valores)
-cp .env.example .env
-#   edite o .env: token do bot, chat id, senha do banco, chave da IA...
-
-# 3. suba
-docker compose up -d
-
-# 4. abra o n8n em http://localhost:5678 e importe os workflows (pasta workflows/)
+git clone https://github.com/DienysonSouza/n8n-telegram-ai-assistant.git
+cd n8n-telegram-ai-assistant
+chmod +x install.sh
+./install.sh
 ```
 
-> Cada pessoa roda **a própria instância**, com **os próprios dados e credenciais**. Nada pessoal vem embutido neste repositório.
+### Windows PowerShell
 
-## ⚙️ Configuração
+```powershell
+git clone https://github.com/DienysonSouza/n8n-telegram-ai-assistant.git
+cd n8n-telegram-ai-assistant
+Set-ExecutionPolicy -Scope Process Bypass
+.\install.ps1
+```
 
-Todas as configurações ficam no arquivo `.env` (veja `.env.example`). As principais:
+O instalador pede somente:
 
-| Variável | O que é |
-|---|---|
-| `TELEGRAM_BOT_TOKEN` | Token do seu bot (BotFather) |
-| `OWNER_CHAT_ID` | Seu chat id no Telegram (só você comanda o bot) |
-| `ANTHROPIC_API_KEY` | Chave da API da Anthropic (a IA) |
-| `PG_*` | Conexão do Postgres |
-| `OWNER_NAME` / `BOT_NAME` | Seu nome e o nome do bot |
-| `N8N_ENCRYPTION_KEY` | Chave que cifra as credenciais do n8n — **gere e guarde** |
+1. token do bot criado no BotFather;
+2. chave da Anthropic;
+3. chat ID do proprietario;
+4. nome do proprietario e do bot;
+5. URL publica do n8n, quando houver.
 
-## 🤖 Criar o bot no Telegram
+As senhas do PostgreSQL e a chave de criptografia do n8n sao geradas
+automaticamente.
 
-1. No Telegram, fale com o [@BotFather](https://t.me/BotFather) → `/newbot` → copie o **token** para `TELEGRAM_BOT_TOKEN`.
-2. Descubra seu **chat id** com o [@userinfobot](https://t.me/userinfobot) → coloque em `OWNER_CHAT_ID`.
+## Usar diretamente a imagem
 
-## 📦 Importar os workflows
+```bash
+docker pull ghcr.io/dienysonsouza/n8n-telegram-ai-assistant:latest
+```
 
-Os workflows ficam em [`workflows/`](workflows/). No n8n: **Workflows → Import from File** e selecione cada `.json`. Depois conecte as **credenciais** (Telegram, Anthropic, Postgres) na UI.
+A imagem contem n8n, workflows e bootstrap. O `docker-compose.yml` adiciona o
+PostgreSQL e os volumes persistentes:
 
-## 🧩 Módulos opcionais
+```bash
+cp .env.example .env
+# preencha os campos obrigatorios
+docker compose up -d
+```
 
-Ative pelo `.env`:
-- `ENABLE_JURIDICO=true` — prazos processuais, honorários, monitor de publicações (CNJ).
-- `ENABLE_FITNESS=true` — registro de treinos e refeições/dieta.
+## Primeiro acesso
 
-Veja [`docs/modulos.md`](docs/modulos.md).
+1. Abra a URL configurada e crie o usuario local do n8n.
+2. Confira os workflows `AI Assistant Community` e
+   `AI Assistant Community Pro`.
+3. Ative somente a edicao que deseja usar.
+4. Envie uma mensagem de teste no Telegram.
 
-- Veja [`docs/instalacao.md`](docs/instalacao.md) para o passo a passo completo.
+Os workflows ficam desativados por padrao para impedir que os dois respondam ao
+mesmo bot.
 
-## 📄 Licença
+## URL publica do Telegram
 
-[MIT](LICENSE) — use, modifique e compartilhe livremente.
+O Telegram Trigger precisa de HTTPS publico. Em uma VPS, configure
+`WEBHOOK_URL`, `N8N_HOST`, `N8N_PROTOCOL=https` e um proxy ou tunnel.
+
+O Compose inclui um perfil opcional para Cloudflare Tunnel:
+
+```bash
+# preencha CLOUDFLARE_TUNNEL_TOKEN e a URL publica no .env
+docker compose --profile tunnel up -d
+```
+
+Cloudflare Tunnel e opcional e usa a conta do proprio instalador.
+
+## Como o bootstrap funciona
+
+```text
+imagem comunitaria
+  -> entrega schema ao PostgreSQL
+  -> espera o banco ficar saudavel
+  -> cria credenciais cifradas no n8n
+  -> importa os dois workflows
+  -> grava um marcador no volume
+  -> inicia o n8n
+```
+
+O processo e idempotente. Reiniciar os containers nao duplica workflows nem
+sobrescreve credenciais.
+
+## Atualizar
+
+```bash
+docker compose pull
+docker compose up -d
+```
+
+Fixe `ASSISTANT_VERSION` em uma tag `vX.Y.Z` para ambientes que exigem
+atualizacoes controladas.
+
+## Dados e backup
+
+Os dados ficam nos volumes `n8n_data` e `pgdata`. Guarde tambem o `.env`,
+principalmente `N8N_ENCRYPTION_KEY`.
+
+Veja [docs/instalacao.md](docs/instalacao.md) para HTTPS, backup,
+troubleshooting e atualizacao.
+
+## Desenvolvimento
+
+Depois de editar um workflow:
+
+```bash
+node scripts/prepare-workflows.mjs
+```
+
+O script remove referencias pessoais, mantem os workflows desativados e aplica
+os IDs das credenciais comunitarias. A validacao de pull request constroi a
+imagem e faz uma instalacao completa descartavel.
+
+## Licenca
+
+[MIT](LICENSE)

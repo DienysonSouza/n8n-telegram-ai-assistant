@@ -1,55 +1,145 @@
-# 📥 Instalação
+# Instalacao e operacao
 
-## Pré-requisitos
-- [Docker](https://docs.docker.com/get-docker/) e Docker Compose
-- Uma conta na [Anthropic](https://console.anthropic.com) (chave de API)
-- Um bot do Telegram (criado no BotFather)
+## Requisitos
 
-## Passo a passo
+- Docker Engine ou Docker Desktop com Compose v2;
+- bot criado no BotFather;
+- chave da Anthropic;
+- HTTPS publico para ativar o Telegram Trigger.
 
-### 1. Clonar e configurar
+## Instalacao assistida
+
+Use `install.sh` em Linux/macOS ou `install.ps1` no Windows. O instalador cria
+o `.env`, gera segredos fortes e sobe os containers.
+
+Depois do primeiro boot:
+
+1. abra o n8n;
+2. crie o usuario local;
+3. escolha o workflow pessoal ou Pro;
+4. ative somente um;
+5. envie uma mensagem curta.
+
+## Instalacao manual
+
 ```bash
-git clone <este-repo>
-cd n8n-telegram-ai-assistant
 cp .env.example .env
 ```
 
-### 2. Criar o bot no Telegram
-1. Fale com o [@BotFather](https://t.me/BotFather) → `/newbot` → escolha nome e usuário.
-2. Copie o **token** → cole em `TELEGRAM_BOT_TOKEN` no `.env`.
-3. Descubra seu **chat id** com o [@userinfobot](https://t.me/userinfobot) → cole em `OWNER_CHAT_ID`.
+Preencha:
 
-### 3. Preencher o `.env`
-- `ANTHROPIC_API_KEY` — sua chave da Anthropic.
-- `PG_PASSWORD` — uma senha forte para o banco.
-- `N8N_ENCRYPTION_KEY` — gere com `openssl rand -hex 24` e **guarde em lugar seguro**
-  (sem ela, as credenciais salvas no n8n ficam ilegíveis após reiniciar).
-- `OWNER_NAME` / `BOT_NAME` — seu nome e o nome do assistente.
+- `TELEGRAM_BOT_TOKEN`;
+- `ANTHROPIC_API_KEY`;
+- `OWNER_CHAT_ID`;
+- `OWNER_NAME`;
+- `BOT_NAME`;
+- `PG_PASSWORD`;
+- `N8N_ENCRYPTION_KEY`.
 
-### 4. Subir
+Depois:
+
 ```bash
 docker compose up -d
+docker compose ps
+docker compose logs -f n8n-import n8n
 ```
-O Postgres já aplica o `db/schema.sql` na primeira subida. Acompanhe com `docker compose logs -f`.
 
-### 5. Configurar o n8n
-1. Abra `http://localhost:5678` e crie sua conta local.
-2. **Credenciais** (menu Credentials), crie:
-   - **Telegram API** → seu token.
-   - **Anthropic** → sua chave.
-   - **Postgres** → host `postgres`, os dados do `.env`.
-3. **Importar workflows**: Workflows → *Import from File* → selecione cada `.json` de [`../workflows/`](../workflows/).
-4. Em cada workflow, ligue as credenciais que você criou e **ative**.
+O `n8n-import` deve terminar com codigo zero. Ele nao fica em execucao.
 
-### 6. Testar
-Mande uma mensagem para o seu bot no Telegram. Ele deve responder. 🎉
+## HTTPS e Telegram
 
-## Atualizar
+Para um dominio como `bot.example.com`:
+
+```env
+N8N_HOST=bot.example.com
+N8N_PROTOCOL=https
+N8N_SECURE_COOKIE=true
+WEBHOOK_URL=https://bot.example.com/
+```
+
+Configure a rota HTTPS para `http://n8n:5678`. O perfil `tunnel` do Compose
+pode executar um Cloudflare Tunnel ja criado:
+
+```env
+CLOUDFLARE_TUNNEL_TOKEN=token-do-seu-tunnel
+```
+
 ```bash
-git pull
-docker compose pull && docker compose up -d
+docker compose --profile tunnel up -d
 ```
+
+## Escolha do workflow
+
+- `AI Assistant Community`: financeiro, tarefas, notas e lembretes.
+- `AI Assistant Community Pro`: adiciona rotinas juridicas e fitness.
+
+Nao ative os dois com o mesmo token, pois ambos receberiam a mesma atualizacao.
 
 ## Backup
-- Banco: `docker compose exec postgres pg_dump -U "$PG_USER" "$PG_DATABASE" > backup.sql`
-- n8n (credenciais/workflows): faça backup do volume `n8n_data` e **guarde a `N8N_ENCRYPTION_KEY`**.
+
+### PostgreSQL
+
+```bash
+docker compose exec -T postgres \
+  pg_dump -U assistant -d assistant -Fc > assistant.dump
+```
+
+### n8n
+
+Pare o n8n por alguns minutos e copie o volume `n8n_data`, ou use o comando
+SQLite `.backup` dentro de um procedimento consistente. Guarde o `.env` em
+local protegido.
+
+Um backup deve ser restaurado em ambiente isolado antes de ser considerado
+valido.
+
+## Atualizacao
+
+```bash
+docker compose pull
+docker compose up -d
+```
+
+Em producao, use uma tag de versao em `ASSISTANT_VERSION` e faca backup antes.
+
+## Diagnostico
+
+### O importador falhou
+
+```bash
+docker compose logs n8n-import
+```
+
+Confira campos obrigatorios do `.env`, saude do PostgreSQL e permissao do
+volume `n8n_data`.
+
+### O workflow nao aparece
+
+```bash
+docker compose run --rm n8n-import
+```
+
+Se a instancia ja tinha workflows, o bootstrap nao importa automaticamente
+para evitar sobrescrever uma instalacao existente.
+
+### Telegram nao ativa
+
+Confirme que `WEBHOOK_URL` e HTTPS publico, que o dominio chega ao n8n e que
+somente um workflow usa o token.
+
+### Banco nao conecta
+
+Confirme `PG_HOST=postgres`, usuario, banco e senha. As credenciais sao criadas
+somente no primeiro bootstrap; alteracoes posteriores devem ser feitas no n8n
+ou em um volume novo de teste.
+
+## Remocao
+
+Parar containers preservando dados:
+
+```bash
+docker compose down
+```
+
+O comando `docker compose down -v` apaga os dados e deve ser usado somente em
+uma instalacao descartavel.

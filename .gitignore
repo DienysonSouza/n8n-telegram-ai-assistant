@@ -2,6 +2,10 @@
 .env
 *.env
 !.env.example
+*.dump
+*.sql.gz
+*.tar
+*.tar.gz
 
 # Exports CRUS dos workflows (podem conter dados pessoais antes da limpeza)
 workflows/_raw/
