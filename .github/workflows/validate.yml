@@ -1,0 +1,72 @@
+name: Validar instalacao
+
+on:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  integration:
+    if: github.event.repository.visibility == 'public'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Baixar codigo
+        uses: actions/checkout@v4
+
+      - name: Validar geracao dos workflows
+        run: |
+          node scripts/prepare-workflows.mjs
+          git diff --exit-code -- workflows
+
+      - name: Criar configuracao de teste
+        run: |
+          cat > .env <<'EOF'
+          TELEGRAM_BOT_TOKEN=123456789:test_token_for_local_validation_only
+          ANTHROPIC_API_KEY=test_key_for_local_validation_only
+          OWNER_CHAT_ID=123456789
+          OWNER_NAME=Test User
+          BOT_NAME=Test Assistant
+          PG_PASSWORD=test_password_not_used_outside_ci
+          N8N_ENCRYPTION_KEY=0123456789abcdef0123456789abcdef
+          PG_HOST=postgres
+          PG_PORT=5432
+          PG_DATABASE=assistant
+          PG_USER=assistant
+          N8N_HOST=localhost
+          N8N_PROTOCOL=http
+          N8N_SECURE_COOKIE=false
+          WEBHOOK_URL=http://localhost:5678/
+          ASSISTANT_IMAGE=telegram-assistant-ci
+          ASSISTANT_VERSION=latest
+          EOF
+
+      - name: Validar Compose
+        run: docker compose config --quiet
+
+      - name: Construir imagem
+        run: docker build -t telegram-assistant-ci:latest .
+
+      - name: Subir instalacao
+        run: docker compose up -d --wait
+
+      - name: Conferir workflows
+        run: |
+          count="$(docker compose exec -T n8n n8n list:workflow --onlyId 2>/dev/null | grep -Ec '^[A-Za-z0-9_-]{8,}$')"
+          test "$count" -eq 2
+
+      - name: Conferir schema
+        run: |
+          docker compose exec -T postgres psql -U assistant -d assistant -tAc \
+            "SELECT count(*) FROM information_schema.tables WHERE table_schema='public'" \
+            | grep -Eq '^[2-9][0-9]?$'
+
+      - name: Mostrar diagnostico em falha
+        if: failure()
+        run: docker compose logs --no-color
+
+      - name: Encerrar
+        if: always()
+        run: docker compose down -v
