@@ -1,39 +1,32 @@
-# 🧩 Módulos
+# Modulos
 
-O assistente é dividido em módulos. Os **principais** vêm ligados; os **opcionais** você ativa no `.env`.
+O repositorio instala dois workflows. Escolha um deles no primeiro acesso.
 
-## Principais (sempre ativos)
+## AI Assistant Community
 
-### 💰 Financeiro
-- Lançar gastos por linguagem natural: *"ifood 45 no crédito"*.
-- Gastos fixos mensais, faturas de cartão, orçamentos por categoria.
-- Relatórios (diário/semanal/mensal) e categorização automática pela IA.
-- Categorias customizáveis via `EXPENSE_CATEGORIES`.
+- gastos e faturas;
+- orcamentos e relatorios;
+- tarefas, prazos e recorrencias;
+- notas e humor;
+- lembretes e rotinas agendadas.
 
-### ✅ Produtividade
-- Tarefas com prazo, conclusão, adiamento e recorrência.
-- Lembretes automáticos no horário.
-- Notas rápidas e registro de humor.
+## AI Assistant Community Pro
 
-### ⏰ Rotinas agendadas
-- Resumo diário, relatório semanal e alertas — enviados automaticamente no seu Telegram.
+Inclui as funcoes da versao comum e acrescenta:
 
-## Opcionais
+- clientes e honorarios;
+- processos e consulta ao DataJud;
+- prazos juridicos;
+- treinos e refeicoes.
 
-### ⚖️ Jurídico — `ENABLE_JURIDICO=true`
-Para quem é da área jurídica:
-- Registro de honorários e clientes.
-- Acompanhamento de prazos processuais.
-- Monitor de publicações via API pública do CNJ (informe a `OAB_NUMBER`).
+Para consultas ao DataJud, preencha `CNJ_API_KEY` no `.env` antes de subir os
+containers. Fitness nao exige servico externo.
 
-> Requer aplicar `db/schema_juridico.sql`.
+## Regra de ativacao
 
-### 🏋️ Fitness — `ENABLE_FITNESS=true`
-- Registro de treinos (tipo, duração).
-- Registro de refeições / acompanhamento de dieta.
+Ative somente um workflow por token do Telegram. Os dois templates ja chegam
+vinculados as credenciais criadas pelo bootstrap, mas permanecem desativados
+ate o usuario escolher a edicao.
 
-> Requer aplicar `db/schema_fitness.sql`.
-
----
-
-Cada módulo é um conjunto de "tools" no workflow do n8n. Você pode remover os que não usar diretamente na interface do n8n, sem quebrar os demais.
+O schema completo e instalado nas duas edicoes. Tabelas nao utilizadas ficam
+vazias e nao consomem recursos relevantes.

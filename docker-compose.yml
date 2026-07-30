@@ -1,66 +1,146 @@
+x-n8n-environment: &n8n-environment
+  N8N_ENCRYPTION_KEY: ${N8N_ENCRYPTION_KEY:?configure no .env}
+  N8N_ENFORCE_SETTINGS_FILE_PERMISSIONS: "true"
+  N8N_BLOCK_ENV_ACCESS_IN_NODE: "false"
+  N8N_RUNNERS_ENABLED: "false"
+  NODE_FUNCTION_ALLOW_EXTERNAL: "pg"
+  NODE_FUNCTION_ALLOW_BUILTIN: "*"
+  N8N_DIAGNOSTICS_ENABLED: "false"
+  N8N_PERSONALIZATION_ENABLED: "false"
+  N8N_SECURE_COOKIE: ${N8N_SECURE_COOKIE:-false}
+  N8N_HOST: ${N8N_HOST:-localhost}
+  N8N_PROTOCOL: ${N8N_PROTOCOL:-http}
+  WEBHOOK_URL: ${WEBHOOK_URL:-http://localhost:5678/}
+  GENERIC_TIMEZONE: ${GENERIC_TIMEZONE:-America/Sao_Paulo}
+  TZ: ${TZ:-America/Sao_Paulo}
+  EXECUTIONS_DATA_PRUNE: "true"
+  EXECUTIONS_DATA_MAX_AGE: ${EXECUTIONS_DATA_MAX_AGE:-168}
+  EXECUTIONS_DATA_PRUNE_MAX_COUNT: ${EXECUTIONS_DATA_PRUNE_MAX_COUNT:-1000}
+  TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN:?configure no .env}
+  ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:?configure no .env}
+  ANTHROPIC_MODEL: ${ANTHROPIC_MODEL:-claude-haiku-4-5-20251001}
+  OWNER_CHAT_ID: ${OWNER_CHAT_ID:?configure no .env}
+  OWNER_NAME: ${OWNER_NAME:?configure no .env}
+  SECONDARY_NAME: ${SECONDARY_NAME:-}
+  BOT_NAME: ${BOT_NAME:-Assistente}
+  CNJ_API_KEY: ${CNJ_API_KEY:-}
+  BOT_PGHOST: ${PG_HOST:-postgres}
+  BOT_PGPORT: ${PG_PORT:-5432}
+  BOT_PGDATABASE: ${PG_DATABASE:-assistant}
+  BOT_PGUSER: ${PG_USER:-assistant}
+  BOT_PGPASSWORD: ${PG_PASSWORD:?configure no .env}
+  POSTGRES_PASSWORD: ${PG_PASSWORD:?configure no .env}
+  PG_HOST: ${PG_HOST:-postgres}
+  PG_PORT: ${PG_PORT:-5432}
+  PG_DATABASE: ${PG_DATABASE:-assistant}
+  PG_USER: ${PG_USER:-assistant}
+  PG_PASSWORD: ${PG_PASSWORD:?configure no .env}
+
+x-n8n-service: &n8n-service
+  image: ${ASSISTANT_IMAGE:-ghcr.io/dienysonsouza/n8n-telegram-ai-assistant}:${ASSISTANT_VERSION:-latest}
+  networks:
+    - assistant
+  environment: *n8n-environment
+  volumes:
+    - n8n_data:/home/node/.n8n
+
 services:
+  assets:
+    image: ${ASSISTANT_IMAGE:-ghcr.io/dienysonsouza/n8n-telegram-ai-assistant}:${ASSISTANT_VERSION:-latest}
+    user: "0:0"
+    entrypoint:
+      - /bin/sh
+      - -c
+    command:
+      - cp -f /opt/assistant/db/01-schema.sql /assets/01-schema.sql
+    volumes:
+      - assistant_assets:/assets
+    restart: "no"
+
   postgres:
-    image: postgres:16-alpine
-    container_name: assistant-postgres
+    image: postgres:15.18-alpine
     restart: unless-stopped
+    depends_on:
+      assets:
+        condition: service_completed_successfully
     environment:
-      POSTGRES_USER: ${PG_USER}
-      POSTGRES_PASSWORD: ${PG_PASSWORD}
-      POSTGRES_DB: ${PG_DATABASE}
+      POSTGRES_USER: ${PG_USER:-assistant}
+      POSTGRES_PASSWORD: ${PG_PASSWORD:?configure no .env}
+      POSTGRES_DB: ${PG_DATABASE:-assistant}
     volumes:
       - pgdata:/var/lib/postgresql/data
-      # schema aplicado automaticamente na 1ª subida do banco
-      - ./db/schema.sql:/docker-entrypoint-initdb.d/01-schema.sql:ro
+      - assistant_assets:/docker-entrypoint-initdb.d:ro
+    networks:
+      - assistant
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${PG_USER} -d ${PG_DATABASE}"]
+      test:
+        - CMD-SHELL
+        - pg_isready -U "$${POSTGRES_USER}" -d "$${POSTGRES_DB}"
       interval: 10s
       timeout: 5s
-      retries: 5
+      retries: 12
+    logging:
+      driver: json-file
+      options:
+        max-size: 10m
+        max-file: "3"
 
-  n8n:
-    image: n8nio/n8n:latest
-    container_name: assistant-n8n
-    restart: unless-stopped
+  n8n-import:
+    <<: *n8n-service
+    restart: "no"
+    entrypoint:
+      - /bin/sh
+      - -c
+    command:
+      - /usr/local/bin/assistant-bootstrap
     depends_on:
       postgres:
         condition: service_healthy
+
+  n8n:
+    <<: *n8n-service
+    restart: unless-stopped
     ports:
-      - "5678:5678"
-    environment:
-      # --- n8n core ---
-      N8N_ENCRYPTION_KEY: ${N8N_ENCRYPTION_KEY}
-      GENERIC_TIMEZONE: ${GENERIC_TIMEZONE}
-      TZ: ${TZ}
-      # Code nodes rodam no processo principal (assim enxergam as variáveis abaixo).
-      # Se a sua versão do n8n ignorar isso, veja docs/instalacao.md (n8n Variables).
-      N8N_RUNNERS_ENABLED: "false"
+      - "${N8N_PORT:-5678}:5678"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      n8n-import:
+        condition: service_completed_successfully
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - wget -qO- http://127.0.0.1:5678/healthz >/dev/null || exit 1
+      interval: 30s
+      timeout: 10s
+      retries: 10
+    logging:
+      driver: json-file
+      options:
+        max-size: 10m
+        max-file: "3"
 
-      # --- identidade / bot (lidas por $env nas expressões e process.env nos Code nodes) ---
-      OWNER_CHAT_ID: ${OWNER_CHAT_ID}
-      OWNER_NAME: ${OWNER_NAME}
-      SECONDARY_NAME: ${SECONDARY_NAME}
-      ANTHROPIC_MODEL: ${ANTHROPIC_MODEL}
-      EXPENSE_CATEGORIES: ${EXPENSE_CATEGORIES}
-      CNJ_API_KEY: ${CNJ_API_KEY}
+  cloudflared:
+    image: cloudflare/cloudflared:2026.7.3
+    profiles:
+      - tunnel
+    restart: unless-stopped
+    command:
+      - tunnel
+      - --no-autoupdate
+      - run
+      - --token
+      - ${CLOUDFLARE_TUNNEL_TOKEN:-configure-me}
+    networks:
+      - assistant
+    depends_on:
+      n8n:
+        condition: service_healthy
 
-      # --- Postgres (os workflows leem BOT_PG* / POSTGRES_PASSWORD; mapeamos do .env limpo) ---
-      BOT_PGHOST: ${PG_HOST}
-      BOT_PGPORT: ${PG_PORT}
-      BOT_PGDATABASE: ${PG_DATABASE}
-      BOT_PGUSER: ${PG_USER}
-      BOT_PGPASSWORD: ${PG_PASSWORD}
-      POSTGRES_PASSWORD: ${PG_PASSWORD}
-      # nomes alternativos (alguns nodes usam PG_* diretamente)
-      PG_HOST: ${PG_HOST}
-      PG_PORT: ${PG_PORT}
-      PG_DATABASE: ${PG_DATABASE}
-      PG_USER: ${PG_USER}
-      PG_PASSWORD: ${PG_PASSWORD}
-    volumes:
-      - n8n_data:/home/node/.n8n
-      # workflows disponíveis dentro do container para import manual ou CLI
-      - ./workflows:/workflows:ro
+networks:
+  assistant:
 
 volumes:
-  pgdata:
+  assistant_assets:
   n8n_data:
+  pgdata:
