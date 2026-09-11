@@ -46,6 +46,12 @@ jobs:
       - name: Validar Compose
         run: docker compose config --quiet
 
+      - name: Validar Compose do Dockge
+        run: docker compose --env-file .env -f deploy/dockge/compose.yaml config --quiet
+
+      - name: Conferir paridade com o stack do Dockge
+        run: ./scripts/check-dockge-parity.sh
+
       - name: Construir imagem
         run: docker build -t telegram-assistant-ci:latest .
 

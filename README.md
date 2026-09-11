@@ -21,6 +21,24 @@ importa os workflows automaticamente.
 
 ## Instalacao simples
 
+### Dockge (VPS com interface web)
+
+O stack e autocontido: nada de build local nem pasta do repositorio no
+servidor. Crie um stack novo no Dockge, cole
+[`deploy/dockge/compose.yaml`](deploy/dockge/compose.yaml) no editor, cole
+[`deploy/dockge/.env.example`](deploy/dockge/.env.example) na aba de ambiente,
+preencha os campos obrigatorios e clique em Deploy.
+
+Gere os dois segredos antes de comecar:
+
+```bash
+openssl rand -hex 24   # PG_PASSWORD
+openssl rand -hex 32   # N8N_ENCRYPTION_KEY
+```
+
+Passo a passo, HTTPS, backup e cuidados com segredos em
+[docs/dockge.md](docs/dockge.md).
+
 ### Linux ou macOS
 
 ```bash
@@ -121,7 +139,12 @@ Os dados ficam nos volumes `n8n_data` e `pgdata`. Guarde tambem o `.env`,
 principalmente `N8N_ENCRYPTION_KEY`.
 
 Veja [docs/instalacao.md](docs/instalacao.md) para HTTPS, backup,
-troubleshooting e atualizacao.
+troubleshooting e atualizacao, ou [docs/dockge.md](docs/dockge.md) para o
+mesmo fluxo pela interface do Dockge.
+
+Nenhum segredo e versionado: o `.gitignore` bloqueia `.env` e `*.env`, e os
+arquivos de exemplo chegam com os campos sensiveis vazios. Nunca cole tokens
+dentro do compose nem em prints de tela ao pedir ajuda.
 
 ## Desenvolvimento
 

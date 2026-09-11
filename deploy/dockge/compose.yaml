@@ -1,0 +1,204 @@
+# n8n Telegram AI Assistant - stack pronto para o Dockge
+#
+# Como usar:
+#   1. crie um stack novo no Dockge (ex.: assistente-telegram);
+#   2. cole este arquivo no editor de compose;
+#   3. preencha as variaveis na aba de ambiente (.env) do Dockge;
+#   4. clique em Deploy.
+#
+# NUNCA escreva tokens ou senhas dentro deste arquivo. Todos os segredos sao
+# lidos do .env do stack. As variaveis com ":?" fazem o deploy falhar de
+# proposito enquanto estiverem vazias.
+#
+# Guia completo: docs/dockge.md
+
+services:
+  # Copia o schema do banco de dentro da imagem para o volume de init do
+  # PostgreSQL. Sobe, executa e sai. Ficar "exited" e o comportamento correto.
+  assets:
+    image: ${ASSISTANT_IMAGE:-ghcr.io/dienysonsouza/n8n-telegram-ai-assistant}:${ASSISTANT_VERSION:-latest}
+    user: "0:0"
+    entrypoint:
+      - /bin/sh
+      - -c
+    command:
+      - cp -f /opt/assistant/db/01-schema.sql /assets/01-schema.sql
+    volumes:
+      - assistant_assets:/assets
+    restart: "no"
+
+  postgres:
+    image: postgres:15.18-alpine
+    restart: unless-stopped
+    depends_on:
+      assets:
+        condition: service_completed_successfully
+    environment:
+      POSTGRES_USER: ${PG_USER:-assistant}
+      POSTGRES_PASSWORD: ${PG_PASSWORD:?defina PG_PASSWORD no ambiente do stack}
+      POSTGRES_DB: ${PG_DATABASE:-assistant}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - assistant_assets:/docker-entrypoint-initdb.d:ro
+    networks:
+      - assistant
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - pg_isready -U "$${POSTGRES_USER}" -d "$${POSTGRES_DB}"
+      interval: 10s
+      timeout: 5s
+      retries: 12
+    logging:
+      driver: json-file
+      options:
+        max-size: 10m
+        max-file: "3"
+
+  # Cria as credenciais cifradas e importa os workflows. Tambem sobe, executa
+  # e sai com codigo zero. E idempotente: reiniciar o stack nao duplica nada.
+  n8n-import:
+    image: ${ASSISTANT_IMAGE:-ghcr.io/dienysonsouza/n8n-telegram-ai-assistant}:${ASSISTANT_VERSION:-latest}
+    restart: "no"
+    entrypoint:
+      - /bin/sh
+      - -c
+    command:
+      - /usr/local/bin/assistant-bootstrap
+    networks:
+      - assistant
+    volumes:
+      - n8n_data:/home/node/.n8n
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      N8N_ENCRYPTION_KEY: ${N8N_ENCRYPTION_KEY:?defina N8N_ENCRYPTION_KEY no ambiente do stack}
+      N8N_ENFORCE_SETTINGS_FILE_PERMISSIONS: "true"
+      N8N_BLOCK_ENV_ACCESS_IN_NODE: "false"
+      N8N_RUNNERS_ENABLED: "false"
+      NODE_FUNCTION_ALLOW_EXTERNAL: "pg"
+      NODE_FUNCTION_ALLOW_BUILTIN: "*"
+      N8N_DIAGNOSTICS_ENABLED: "false"
+      N8N_PERSONALIZATION_ENABLED: "false"
+      N8N_SECURE_COOKIE: ${N8N_SECURE_COOKIE:-false}
+      N8N_HOST: ${N8N_HOST:-localhost}
+      N8N_PROTOCOL: ${N8N_PROTOCOL:-http}
+      WEBHOOK_URL: ${WEBHOOK_URL:-http://localhost:5678/}
+      GENERIC_TIMEZONE: ${GENERIC_TIMEZONE:-America/Sao_Paulo}
+      TZ: ${TZ:-America/Sao_Paulo}
+      EXECUTIONS_DATA_PRUNE: "true"
+      EXECUTIONS_DATA_MAX_AGE: ${EXECUTIONS_DATA_MAX_AGE:-168}
+      EXECUTIONS_DATA_PRUNE_MAX_COUNT: ${EXECUTIONS_DATA_PRUNE_MAX_COUNT:-1000}
+      TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN:?defina TELEGRAM_BOT_TOKEN no ambiente do stack}
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:?defina ANTHROPIC_API_KEY no ambiente do stack}
+      ANTHROPIC_MODEL: ${ANTHROPIC_MODEL:-claude-haiku-4-5-20251001}
+      OWNER_CHAT_ID: ${OWNER_CHAT_ID:?defina OWNER_CHAT_ID no ambiente do stack}
+      OWNER_NAME: ${OWNER_NAME:?defina OWNER_NAME no ambiente do stack}
+      SECONDARY_NAME: ${SECONDARY_NAME:-}
+      BOT_NAME: ${BOT_NAME:-Assistente}
+      CNJ_API_KEY: ${CNJ_API_KEY:-}
+      BOT_PGHOST: ${PG_HOST:-postgres}
+      BOT_PGPORT: ${PG_PORT:-5432}
+      BOT_PGDATABASE: ${PG_DATABASE:-assistant}
+      BOT_PGUSER: ${PG_USER:-assistant}
+      BOT_PGPASSWORD: ${PG_PASSWORD:?defina PG_PASSWORD no ambiente do stack}
+      POSTGRES_PASSWORD: ${PG_PASSWORD:?defina PG_PASSWORD no ambiente do stack}
+      PG_HOST: ${PG_HOST:-postgres}
+      PG_PORT: ${PG_PORT:-5432}
+      PG_DATABASE: ${PG_DATABASE:-assistant}
+      PG_USER: ${PG_USER:-assistant}
+      PG_PASSWORD: ${PG_PASSWORD:?defina PG_PASSWORD no ambiente do stack}
+
+  n8n:
+    image: ${ASSISTANT_IMAGE:-ghcr.io/dienysonsouza/n8n-telegram-ai-assistant}:${ASSISTANT_VERSION:-latest}
+    restart: unless-stopped
+    # Publique a porta apenas na rede local (127.0.0.1) quando houver proxy
+    # reverso na frente. Veja docs/dockge.md.
+    ports:
+      - "${N8N_PORT:-5678}:5678"
+    networks:
+      - assistant
+    volumes:
+      - n8n_data:/home/node/.n8n
+    depends_on:
+      postgres:
+        condition: service_healthy
+      n8n-import:
+        condition: service_completed_successfully
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - wget -qO- http://127.0.0.1:5678/healthz >/dev/null || exit 1
+      interval: 30s
+      timeout: 10s
+      retries: 10
+    logging:
+      driver: json-file
+      options:
+        max-size: 10m
+        max-file: "3"
+    environment:
+      N8N_ENCRYPTION_KEY: ${N8N_ENCRYPTION_KEY:?defina N8N_ENCRYPTION_KEY no ambiente do stack}
+      N8N_ENFORCE_SETTINGS_FILE_PERMISSIONS: "true"
+      N8N_BLOCK_ENV_ACCESS_IN_NODE: "false"
+      N8N_RUNNERS_ENABLED: "false"
+      NODE_FUNCTION_ALLOW_EXTERNAL: "pg"
+      NODE_FUNCTION_ALLOW_BUILTIN: "*"
+      N8N_DIAGNOSTICS_ENABLED: "false"
+      N8N_PERSONALIZATION_ENABLED: "false"
+      N8N_SECURE_COOKIE: ${N8N_SECURE_COOKIE:-false}
+      N8N_HOST: ${N8N_HOST:-localhost}
+      N8N_PROTOCOL: ${N8N_PROTOCOL:-http}
+      WEBHOOK_URL: ${WEBHOOK_URL:-http://localhost:5678/}
+      GENERIC_TIMEZONE: ${GENERIC_TIMEZONE:-America/Sao_Paulo}
+      TZ: ${TZ:-America/Sao_Paulo}
+      EXECUTIONS_DATA_PRUNE: "true"
+      EXECUTIONS_DATA_MAX_AGE: ${EXECUTIONS_DATA_MAX_AGE:-168}
+      EXECUTIONS_DATA_PRUNE_MAX_COUNT: ${EXECUTIONS_DATA_PRUNE_MAX_COUNT:-1000}
+      TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN:?defina TELEGRAM_BOT_TOKEN no ambiente do stack}
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:?defina ANTHROPIC_API_KEY no ambiente do stack}
+      ANTHROPIC_MODEL: ${ANTHROPIC_MODEL:-claude-haiku-4-5-20251001}
+      OWNER_CHAT_ID: ${OWNER_CHAT_ID:?defina OWNER_CHAT_ID no ambiente do stack}
+      OWNER_NAME: ${OWNER_NAME:?defina OWNER_NAME no ambiente do stack}
+      SECONDARY_NAME: ${SECONDARY_NAME:-}
+      BOT_NAME: ${BOT_NAME:-Assistente}
+      CNJ_API_KEY: ${CNJ_API_KEY:-}
+      BOT_PGHOST: ${PG_HOST:-postgres}
+      BOT_PGPORT: ${PG_PORT:-5432}
+      BOT_PGDATABASE: ${PG_DATABASE:-assistant}
+      BOT_PGUSER: ${PG_USER:-assistant}
+      BOT_PGPASSWORD: ${PG_PASSWORD:?defina PG_PASSWORD no ambiente do stack}
+      POSTGRES_PASSWORD: ${PG_PASSWORD:?defina PG_PASSWORD no ambiente do stack}
+      PG_HOST: ${PG_HOST:-postgres}
+      PG_PORT: ${PG_PORT:-5432}
+      PG_DATABASE: ${PG_DATABASE:-assistant}
+      PG_USER: ${PG_USER:-assistant}
+      PG_PASSWORD: ${PG_PASSWORD:?defina PG_PASSWORD no ambiente do stack}
+
+  # Cloudflare Tunnel opcional. O Dockge nao seleciona "profiles" do Compose,
+  # entao o servico vem comentado. Remova os comentarios apenas se for usar
+  # tunnel e ja tiver o token em CLOUDFLARE_TUNNEL_TOKEN.
+  #
+  # cloudflared:
+  #   image: cloudflare/cloudflared:2026.7.3
+  #   restart: unless-stopped
+  #   command:
+  #     - tunnel
+  #     - --no-autoupdate
+  #     - run
+  #     - --token
+  #     - ${CLOUDFLARE_TUNNEL_TOKEN:?defina CLOUDFLARE_TUNNEL_TOKEN no ambiente do stack}
+  #   networks:
+  #     - assistant
+  #   depends_on:
+  #     n8n:
+  #       condition: service_healthy
+
+networks:
+  assistant:
+
+volumes:
+  assistant_assets:
+  n8n_data:
+  pgdata:
