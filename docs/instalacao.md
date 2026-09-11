@@ -7,6 +7,12 @@
 - chave da Anthropic;
 - HTTPS publico para ativar o Telegram Trigger.
 
+## Interface web (Dockge)
+
+Se voce administra a VPS pelo Dockge, use
+[dockge.md](dockge.md): stack pronto para colar, ambiente sem segredos
+versionados e operacao pela interface.
+
 ## Instalacao assistida
 
 Use `install.sh` em Linux/macOS ou `install.ps1` no Windows. O instalador cria
@@ -132,6 +138,18 @@ somente um workflow usa o token.
 Confirme `PG_HOST=postgres`, usuario, banco e senha. As credenciais sao criadas
 somente no primeiro bootstrap; alteracoes posteriores devem ser feitas no n8n
 ou em um volume novo de teste.
+
+## Segredos
+
+Os arquivos versionados (`.env.example`, `deploy/dockge/.env.example`) chegam
+com os campos sensiveis vazios e o `.gitignore` bloqueia `.env` e `*.env`.
+
+- mantenha o `.env` com `chmod 600` e fora de backups publicos;
+- guarde `N8N_ENCRYPTION_KEY` em um gerenciador de senhas: sem ela um backup
+  do n8n nao volta a ler as credenciais salvas;
+- ao pedir ajuda, apague tokens de logs e prints antes de enviar;
+- se vazar, revogue o token no BotFather (`/revoke`) e gere outra chave da
+  Anthropic, atualize o `.env` e suba os containers de novo.
 
 ## Remocao
 

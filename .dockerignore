@@ -5,6 +5,7 @@
 !.env.example
 workflows/_raw/
 docs/
+deploy/
 *.md
 node_modules
 *.log
