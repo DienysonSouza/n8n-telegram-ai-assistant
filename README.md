@@ -24,17 +24,22 @@ importa os workflows automaticamente.
 ### Dockge (VPS com interface web)
 
 O stack e autocontido: nada de build local nem pasta do repositorio no
-servidor. Crie um stack novo no Dockge, cole
-[`deploy/dockge/compose.yaml`](deploy/dockge/compose.yaml) no editor, cole
-[`deploy/dockge/.env.example`](deploy/dockge/.env.example) na aba de ambiente,
-preencha os campos obrigatorios e clique em Deploy.
-
-Gere os dois segredos antes de comecar:
+servidor. Com acesso SSH a VPS, um comando prepara tudo:
 
 ```bash
-openssl rand -hex 24   # PG_PASSWORD
-openssl rand -hex 32   # N8N_ENCRYPTION_KEY
+curl -fsSLO https://raw.githubusercontent.com/DienysonSouza/n8n-telegram-ai-assistant/main/scripts/prepare-stack.sh
+less prepare-stack.sh          # leia antes de executar
+sh prepare-stack.sh
 ```
+
+Ele cria a pasta do stack, baixa o compose, gera os segredos, descobre seu
+chat ID do Telegram e grava o `.env` com permissao restrita. Depois e so abrir
+o Dockge e clicar em Deploy.
+
+Sem SSH, da para fazer tudo pela interface: crie um stack novo, cole
+[`deploy/dockge/compose.yaml`](deploy/dockge/compose.yaml) no editor, cole
+[`deploy/dockge/.env.example`](deploy/dockge/.env.example) na aba de ambiente
+e preencha os campos obrigatorios.
 
 Passo a passo, HTTPS, backup e cuidados com segredos em
 [docs/dockge.md](docs/dockge.md).
