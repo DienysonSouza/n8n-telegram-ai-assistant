@@ -17,7 +17,62 @@ Na pratica, instalar pelo Dockge e colar um arquivo e preencher um formulario.
 - HTTPS publico, se quiser ativar o Telegram Trigger;
 - 2 GB de RAM livres como referencia de partida (n8n + PostgreSQL).
 
-## Passo a passo
+## Tenha isto em maos antes de comecar
+
+Juntar estes quatro itens antes de abrir o Dockge evita a parte mais lenta da
+instalacao, que e descobrir cada um no meio do caminho:
+
+1. **token do bot** — `/newbot` no [@BotFather](https://t.me/BotFather);
+2. **chave da Anthropic** — console da Anthropic;
+3. **seu chat ID** — envie qualquer mensagem para o bot recem-criado e abra
+   `https://api.telegram.org/bot<SEU_TOKEN>/getUpdates` no navegador: o numero
+   esta em `result[].message.chat.id`. (O caminho rapido abaixo faz isso por
+   voce.) Essa URL contem o seu token: nao compartilhe nem tire print dela;
+4. **seu nome**, como o bot deve te chamar.
+
+`PG_PASSWORD` e `N8N_ENCRYPTION_KEY` voce nao precisa inventar: os dois
+caminhos abaixo geram sozinhos.
+
+## Caminho rapido: um comando
+
+Com acesso SSH a VPS, um comando prepara a pasta do stack, baixa o compose,
+gera os segredos, descobre seu chat ID e grava o `.env` com permissao 600:
+
+```bash
+curl -fsSLO https://raw.githubusercontent.com/DienysonSouza/n8n-telegram-ai-assistant/main/scripts/prepare-stack.sh
+less prepare-stack.sh          # leia antes de executar
+sh prepare-stack.sh
+```
+
+Ou, com o repositorio ja clonado:
+
+```bash
+./scripts/prepare-stack.sh
+```
+
+O script pergunta o token, a chave, pede que voce mande uma mensagem para o
+bot (para ler o chat ID sozinho), o seu nome e a URL publica. Depois disso o
+stack ja aparece no Dockge e so falta clicar em **Deploy** e seguir para o
+[primeiro acesso](#6-primeiro-acesso).
+
+Opcoes uteis:
+
+```bash
+./scripts/prepare-stack.sh --dir /opt/stacks/outro-nome   # outra pasta
+./scripts/prepare-stack.sh --force                        # sobrescrever .env
+```
+
+`--force` gera uma nova `N8N_ENCRYPTION_KEY` e portanto invalida as
+credenciais ja salvas naquele volume. Use apenas em instalacao nova.
+
+O script tambem roda sem perguntas, para reinstalar ou automatizar: exporte
+`TELEGRAM_BOT_TOKEN`, `ANTHROPIC_API_KEY`, `OWNER_CHAT_ID` e `OWNER_NAME`
+antes de chama-lo e ele nao pergunta o que ja estiver no ambiente.
+
+## Passo a passo pela interface
+
+Use este caminho se preferir nao usar SSH, ou se quiser entender o que o
+script faz.
 
 ### 1. Gere os segredos
 
@@ -107,10 +162,11 @@ pe.
 Os dois workflows chegam desativados de proposito. Ativar os dois com o mesmo
 token faz o Telegram entregar a mesma mensagem para ambos.
 
-## Atalho pelo terminal da VPS
+## Preparar a pasta do stack sem o script
 
-Se preferir preparar o stack por SSH e so depois abrir o Dockge, baixe os
-arquivos direto na pasta de stacks (`/opt/stacks` na instalacao padrao):
+O [caminho rapido](#caminho-rapido-um-comando) faz tudo isto sozinho. Use os
+comandos abaixo se preferir baixar os arquivos e preencher o `.env` na mao,
+direto na pasta de stacks (`/opt/stacks` na instalacao padrao):
 
 ```bash
 STACK=/opt/stacks/assistente-telegram
@@ -255,6 +311,11 @@ costuma indicar volume reaproveitado de outra instalacao.
 
 Comportamento esperado: `assets` e `n8n-import` sao tarefas de inicializacao e
 saem com codigo zero. Verifique so `postgres` e `n8n`.
+
+**O n8n reinicia sozinho com `address '::' is not available`**
+
+A VPS esta com IPv6 desabilitado e o n8n tenta escutar em `::`. Coloque
+`N8N_LISTEN_ADDRESS=0.0.0.0` no ambiente do stack e faca deploy de novo.
 
 **O Telegram nao ativa o trigger**
 

@@ -128,6 +128,11 @@ docker compose run --rm n8n-import
 Se a instancia ja tinha workflows, o bootstrap nao importa automaticamente
 para evitar sobrescrever uma instalacao existente.
 
+### O n8n reinicia sozinho
+
+Se o log repete `n8n's address '::' is not available`, a maquina esta com IPv6
+desabilitado. Defina `N8N_LISTEN_ADDRESS=0.0.0.0` no `.env` e suba de novo.
+
 ### Telegram nao ativa
 
 Confirme que `WEBHOOK_URL` e HTTPS publico, que o dominio chega ao n8n e que
